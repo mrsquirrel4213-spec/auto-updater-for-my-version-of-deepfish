@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 2
+DFModBuild := 3
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -21005,7 +21005,7 @@ CMCtrls := []
 NavHwnd := {}
 
 WINW := 760
-WINH := 520
+WINH := 560
 SIDEW := 176
 HEADH := 70
 BARH := 44
