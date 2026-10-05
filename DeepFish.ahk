@@ -37,8 +37,9 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 1
+DFModBuild := 2
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
+DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
 setkeydelay, -1
 setmousedelay, -1
@@ -220,6 +221,7 @@ gosub, EnsureConfigFiles
 gosub, LoadSettingsFile
 gosub, LoadActiveProfile
 gosub, FirstRunGate
+gosub, DFAccessInit
 
 MacroRunning := false
 MacroPaused := false
@@ -773,6 +775,11 @@ if WinActive("DeepFish BETA")
 goto DoExit
 
 ToggleMacro:
+if (!MacroRunning and DFLocked)
+	{
+	MsgBox, 0x1030, DeepFish, %DFLockReason%
+	return
+	}
 if (!MacroRunning and !ReadThisAccepted)
 	{
 	gosub, ReadThisLockedNotice
@@ -3093,6 +3100,186 @@ if !FileExist(SettingsFile)
 return
 
 ;====================================================================================================;
+
+DFAccessInit:
+DFLocked := false
+DFLockReason := ""
+DFKill := false
+IniRead, DFInstallID, %SettingsFile%, Access, InstallID, %A_Space%
+if (DFInstallID = "" or StrLen(DFInstallID) < 8)
+	{
+	Random,, % A_TickCount
+	DFInstallID := ""
+	Loop 16
+		{
+		Random, rr, 0, 15
+		DFInstallID .= SubStr("0123456789abcdef", rr + 1, 1)
+		}
+	IniWrite, %DFInstallID%, %SettingsFile%, Access, InstallID
+	}
+IniRead, DFTrusted, %SettingsFile%, Access, Trusted, 0
+DFTrusted := (DFTrusted = 1) ? 1 : 0
+IniRead, DFReqKeyCache, %SettingsFile%, Access, ReqKeyCache, 0
+gosub, DFAccessCheck
+SetTimer, DFAccessCheck, 180000
+return
+
+DFAccessCheck:
+DFAccTxt := ""
+DFBlkTxt := ""
+DFReach := false
+if (DFUpdateRepo != "")
+	{
+	try
+		{
+		whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+		whr.SetTimeouts(3000, 3000, 3000, 3000)
+		whr.Open("GET", "https://raw.githubusercontent.com/" . DFUpdateRepo . "/HEAD/access.txt?t=" . A_TickCount, false)
+		whr.Send()
+		if (whr.Status = 200)
+			{
+			DFAccTxt := whr.ResponseText
+			DFReach := true
+			}
+		else if (whr.Status = 404)
+			DFReach := true
+		}
+	catch e
+		DFReach := false
+	try
+		{
+		whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+		whr.SetTimeouts(3000, 3000, 3000, 3000)
+		whr.Open("GET", "https://raw.githubusercontent.com/" . DFUpdateRepo . "/HEAD/blocked.txt?t=" . A_TickCount, false)
+		whr.Send()
+		if (whr.Status = 200)
+			DFBlkTxt := whr.ResponseText
+		}
+	catch e
+		DFBlkTxt := DFBlkTxt
+	}
+DFKill := false
+DFReqKey := DFReqKeyCache
+if (DFReach)
+	{
+	DFKill := (InStr(DFAccTxt, "kill=1") ? true : false)
+	DFReqKey := (InStr(DFAccTxt, "requirekey=1") ? 1 : 0)
+	if (DFReqKey != DFReqKeyCache)
+		{
+		DFReqKeyCache := DFReqKey
+		IniWrite, %DFReqKey%, %SettingsFile%, Access, ReqKeyCache
+		}
+	}
+DFBlockedNow := false
+Loop, Parse, DFBlkTxt, `n, `r
+	{
+	v := Trim(A_LoopField)
+	if (v != "" and v = DFInstallID)
+		DFBlockedNow := true
+	}
+DFLocked := false
+DFLockReason := ""
+if (DFKill)
+	{
+	DFLocked := true
+	DFLockReason := "The macro has been turned off by the owner."
+	}
+else if (DFBlockedNow)
+	{
+	DFLocked := true
+	DFLockReason := "Your access to this macro has been turned off."
+	}
+else if (DFReqKey = 1 and !DFTrusted)
+	{
+	DFLocked := true
+	DFLockReason := "This macro needs a key.`n`nClick ""Add key"" (bottom left) and enter the key the owner gave you.`n`nYour Install ID:  " . DFInstallID
+	}
+if (DFLocked and MacroRunning)
+	gosub, DFForceStop
+return
+
+DFForceStop:
+MacroRunning := false
+MacroPreview := false
+GuiControl, 1:, StartStopDisplay, ▶ Start
+gosub, RefreshRunChip
+settimer, runtime, off
+settimer, NavigationShakeFailsafe, off
+settimer, BarCalculationFailsafe, off
+send {lbutton up}
+send {rbutton up}
+send {shift up}
+TrayTip, DeepFish, %DFLockReason%, 5
+return
+
+AddKeyClick:
+DFKeyPrompt := "Your Install ID (send this to the owner to get a key):`n`n" . DFInstallID . "`n`nPaste the key you were given:"
+InputBox, DFKeyIn, DeepFish - Add key, %DFKeyPrompt%, , 420, 230
+if (ErrorLevel)
+	return
+DFKeyIn := Trim(DFKeyIn)
+if (DFKeyIn = "")
+	return
+if (DFKeySalt = "")
+	{
+	MsgBox, 0x1030, DeepFish, Keys are not set up for this build yet. Ask the owner.
+	return
+	}
+if (DFKeyNorm(DFKeyIn) = DFKeyNorm(DFKeyExpected(DFInstallID)))
+	{
+	DFTrusted := 1
+	IniWrite, 1, %SettingsFile%, Access, Trusted
+	gosub, DFAccessCheck
+	MsgBox, 0x1040, DeepFish, Key accepted - you are now trusted on this PC.
+	}
+else
+	MsgBox, 0x1030, DeepFish, That key is not valid for this PC.`n`nMake sure the owner made it from this exact Install ID:`n`n%DFInstallID%
+return
+
+DFKeyExpected(id) {
+	global DFKeySalt
+	h := SHA256Hex(id . "|" . DFKeySalt)
+	x := SubStr(h, 1, 12)
+	return "DF-" . SubStr(x, 1, 4) . "-" . SubStr(x, 5, 4) . "-" . SubStr(x, 9, 4)
+}
+
+DFKeyNorm(k) {
+	k := RegExReplace(k, "[^0-9A-Za-z]", "")
+	StringUpper, k, k
+	return k
+}
+
+SHA256Hex(str) {
+	n := StrPut(str, "UTF-8") - 1
+	VarSetCapacity(buf, (n < 1) ? 1 : n, 0)
+	StrPut(str, &buf, "UTF-8")
+	return CryptHashHex(&buf, n)
+}
+
+CryptHashHex(pData, nData) {
+	hProv := 0
+	hHash := 0
+	if (!DllCall("advapi32\CryptAcquireContextW", "Ptr*", hProv, "Ptr", 0, "Ptr", 0, "UInt", 24, "UInt", 0xF0000000))
+		return ""
+	if (!DllCall("advapi32\CryptCreateHash", "Ptr", hProv, "UInt", 0x800C, "Ptr", 0, "UInt", 0, "Ptr*", hHash))
+		{
+		DllCall("advapi32\CryptReleaseContext", "Ptr", hProv, "UInt", 0)
+		return ""
+		}
+	DllCall("advapi32\CryptHashData", "Ptr", hHash, "Ptr", pData, "UInt", nData, "UInt", 0)
+	size := 32
+	VarSetCapacity(hash, size, 0)
+	DllCall("advapi32\CryptGetHashParam", "Ptr", hHash, "UInt", 2, "Ptr", &hash, "UInt*", size, "UInt", 0)
+	hex := ""
+	Loop % size
+		{
+		b := NumGet(hash, A_Index - 1, "UChar")
+		hex .= SubStr("0" . Format("{:X}", b), -1)
+		}
+	DllCall("advapi32\CryptDestroyHash", "Ptr", hHash)
+	DllCall("advapi32\CryptReleaseContext", "Ptr", hProv, "UInt", 0)
+	return hex
+}
 
 DFCheckForUpdate:
 SetTimer, DFCheckForUpdate, 600000
@@ -20955,6 +21142,11 @@ for i, d in NavDefs
 	NavY += 38
 	}
 
+Gui, Font, s9 Bold c%ColorAccent%, Segoe UI
+AddKeyBtnY := WINH - 112
+Gui, Add, Text, x12 y%AddKeyBtnY% w152 h26 Center +0x100 +0x200 gAddKeyClick HwndhAddKeyBtn, 🔑  Add key
+SpecialBrushes[hAddKeyBtn] := {brush: hBrushBorder, text: ColorAccentBGR}
+RoundCtrl(hAddKeyBtn, 152, 26, 7)
 Gui, Font, s9 Bold c%ColorRed%, Segoe UI
 VersionsBtnY := WINH - 80
 Gui, Add, Text, x12 y%VersionsBtnY% w152 h28 Center +0x100 +0x200 gVersionsClick HwndhVersionsBtn, 📜  Versions
