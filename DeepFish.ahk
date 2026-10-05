@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 3
+DFModBuild := 4
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
