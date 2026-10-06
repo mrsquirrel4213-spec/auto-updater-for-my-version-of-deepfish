@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 4
+DFModBuild := 5
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -7124,6 +7124,10 @@ TqRings(ByRef agree) {
 	return n
 }
 
+TqPurple(r, g, b) {
+	return (b > g + 50 and r > g + 20 and b >= r * 0.75 and r >= b * 0.45 and b >= 100)
+}
+
 ManiaVisible() {
 	global pNoteBits, NoteH
 	if (!pNoteBits or NoteH < 120)
@@ -7239,7 +7243,7 @@ ManiaStep(t) {
 							dmax := dg
 						if (db > dmax)
 							dmax := db
-						if (kr >= 0.35 and kr <= 0.90 and dmax <= 0.06)
+						if ((kr >= 0.35 and kr <= 0.90 and dmax <= 0.06) or TqPurple(pr, pg, pb))
 							{
 							if (rh <= maxOne)
 								{
