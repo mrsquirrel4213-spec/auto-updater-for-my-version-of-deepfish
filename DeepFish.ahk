@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 5
+DFModBuild := 6
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -2644,11 +2644,11 @@ if (KeeperRelicKey = "")
 	KbLastResult := "no relic key set"
 	goto KeeperBail
 	}
-if (RobloxHwnd)
+if (RobloxHwnd and !WinActive("ahk_id " . RobloxHwnd))
 	{
 	WinActivate, ahk_id %RobloxHwnd%
 	WinWaitActive, ahk_id %RobloxHwnd%, , % TA("kbfocusto", 3)
-	Sleep, % Tm(TA("kbfocus", 300))
+	Sleep, % Tm(TA("kbfocus", 100))
 	}
 
 gosub, KeeperClearDialog
@@ -2723,7 +2723,7 @@ Loop
 		KbLastResult := "Enchant Rod did nothing - try setting the button positions"
 		break
 		}
-	Sleep, % Tm(TA("kbconfirm", 300))
+	Sleep, % Tm(TA("kbconfirm", 120))
 	tooltip, Action: Confirm, %TooltipX%, %Tooltip8%, 8
 	KbTap(KbCx, KbCy)
 	Sleep, % Tm(KeeperStepDelay)
@@ -2746,16 +2746,17 @@ KbGuard := 0
 while (KbGuard < 4)
 	{
 	KbGuard++
-	if (KbGone("enchant", TA("kbclose", 1200)))
+	if (KbGone("enchant", 150))
 		break
 	KbKey(KeeperInvKey)
-	Sleep, % Tm(KeeperOpenDelay)
+	if (KbGone("enchant", TA("kbclose", 1200)))
+		break
 	}
-if (!KbGone("enchant", TA("kbclose", 1200)))
+if (!KbGone("enchant", 150))
 	KbLastResult .= " (inventory still open)"
 
 tooltip, Action: Select Rod, %TooltipX%, %Tooltip8%, 8
-Sleep, % Tm(TA("kbselect", 300))
+Sleep, % Tm(TA("kbselect", 120))
 ForceReEquip := true
 MouseMove, KbSaveX, KbSaveY
 tooltip, , , , 8
@@ -6645,21 +6646,21 @@ AdvRegistry() {
 	r.Push(["Keeperbound recharge", "V", "KeeperStepDelay", 0, "ms|Step delay"])
 	r.Push(["Keeperbound recharge", "V", "KeeperBetweenDelay", 0, "ms|Between relics"])
 	r.Push(["Keeperbound recharge", "L", "kbfocusto", 3, "s|Wait for Roblox to come to the front (max)"])
-	r.Push(["Keeperbound recharge", "L", "kbfocus", 300, "ms|Pause after Roblox is in front"])
+	r.Push(["Keeperbound recharge", "L", "kbfocus", 100, "ms|Pause after Roblox is in front"])
 	r.Push(["Keeperbound recharge", "L", "kbinv1", 700, "ms|Look for an already-open inventory for"])
 	r.Push(["Keeperbound recharge", "L", "kbinv2", 3000, "ms|Extra wait for the inventory to open"])
 	r.Push(["Keeperbound recharge", "L", "kbconfto", 3500, "ms|Wait for the Confirm box to appear"])
-	r.Push(["Keeperbound recharge", "L", "kbconfirm", 300, "ms|Pause before pressing Confirm"])
+	r.Push(["Keeperbound recharge", "L", "kbconfirm", 120, "ms|Pause before pressing Confirm"])
 	r.Push(["Keeperbound recharge", "L", "kbgone", 3000, "ms|Wait for the Confirm box to close"])
 	r.Push(["Keeperbound recharge", "L", "kbclose", 1200, "ms|Wait for the inventory to close"])
 	r.Push(["Keeperbound recharge", "L", "kbclear", 900, "ms|Pause after closing a leftover dialog"])
-	r.Push(["Keeperbound recharge", "L", "kbselect", 300, "ms|Pause before re-selecting the rod"])
-	r.Push(["Keeperbound recharge", "L", "kbpoll", 150, "ms|Button search: check every"])
-	r.Push(["Keeperbound recharge", "L", "kbgonepoll", 120, "ms|Close check: check every"])
-	r.Push(["Keeperbound recharge", "L", "kbkey", 200, "ms|Pause after a key press"])
-	r.Push(["Keeperbound recharge", "L", "kbtap1", 180, "ms|Button click: hover before clicking"])
-	r.Push(["Keeperbound recharge", "L", "kbtap2", 90, "ms|Button click: click hold"])
-	r.Push(["Keeperbound recharge", "L", "kbtap3", 120, "ms|Button click: pause after clicking"])
+	r.Push(["Keeperbound recharge", "L", "kbselect", 120, "ms|Pause before re-selecting the rod"])
+	r.Push(["Keeperbound recharge", "L", "kbpoll", 40, "ms|Button search: check every"])
+	r.Push(["Keeperbound recharge", "L", "kbgonepoll", 35, "ms|Close check: check every"])
+	r.Push(["Keeperbound recharge", "L", "kbkey", 70, "ms|Pause after a key press"])
+	r.Push(["Keeperbound recharge", "L", "kbtap1", 80, "ms|Button click: hover before clicking"])
+	r.Push(["Keeperbound recharge", "L", "kbtap2", 40, "ms|Button click: click hold"])
+	r.Push(["Keeperbound recharge", "L", "kbtap3", 60, "ms|Button click: pause after clicking"])
 	r.Push(["Aquarium", "V", "AquariumOpenDelay", 0, "ms|Open delay"])
 	r.Push(["Aquarium", "V", "AquariumStepDelay", 0, "ms|Step delay"])
 	r.Push(["Aquarium", "L", "aqfocusto", 3, "s|Wait for Roblox to come to the front (max)"])
@@ -11806,17 +11807,17 @@ KbWaitFor(kind, ByRef fx, ByRef fy, ms) {
 			return true
 		if (A_TickCount - started >= ms)
 			return false
-		Sleep, % Tm(TA("kbpoll", 150))
+		Sleep, % Tm(TA("kbpoll", 40))
 		}
 }
 
 KbKey(k) {
 	if (k = "")
 		return false
-	SetKeyDelay, 60, 90
+	SetKeyDelay, 25, 40
 	Send, %k%
 	SetKeyDelay, -1, -1
-	Sleep, % Tm(TA("kbkey", 200))
+	Sleep, % Tm(TA("kbkey", 70))
 	return true
 }
 
@@ -11864,7 +11865,7 @@ KbGone(kind, ms) {
 			miss := 0
 		if (A_TickCount - started >= ms)
 			return false
-		Sleep, % Tm(TA("kbgonepoll", 120))
+		Sleep, % Tm(TA("kbgonepoll", 35))
 		}
 }
 
@@ -11901,11 +11902,11 @@ KbRodOn() {
 
 KbTap(x, y) {
 	MouseMove, %x%, %y%
-	Sleep, % Tm(TA("kbtap1", 180))
+	Sleep, % Tm(TA("kbtap1", 80))
 	Click, Down
-	Sleep, % Tm(TA("kbtap2", 90))
+	Sleep, % Tm(TA("kbtap2", 40))
 	Click, Up
-	Sleep, % Tm(TA("kbtap3", 120))
+	Sleep, % Tm(TA("kbtap3", 60))
 	return
 }
 
@@ -11920,11 +11921,11 @@ KbTapSaved(x, y) {
 	KbSy := NumGet(KbSpt, 4, "Int")
 	CoordMode, Mouse, Screen
 	MouseMove, %KbSx%, %KbSy%
-	Sleep, % Tm(TA("kbtap1", 180))
+	Sleep, % Tm(TA("kbtap1", 80))
 	Click, Down
-	Sleep, % Tm(TA("kbtap2", 90))
+	Sleep, % Tm(TA("kbtap2", 40))
 	Click, Up
-	Sleep, % Tm(TA("kbtap3", 120))
+	Sleep, % Tm(TA("kbtap3", 60))
 	CoordMode, Mouse, Client
 	return
 }
