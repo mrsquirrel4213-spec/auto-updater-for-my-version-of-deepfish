@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 6
+DFModBuild := 7
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -2634,6 +2634,7 @@ SetBatchLines, -1
 KbLastResult := ""
 KbStatus := "opening"
 KbRecharged := 0
+KbOpenCol := -1
 MouseGetPos, KbSaveX, KbSaveY
 send {lbutton up}
 send {rbutton up}
@@ -2671,6 +2672,10 @@ if (KbManual)
 	tooltip, Action: Equip Relic, %TooltipX%, %Tooltip8%, 8
 	KbKey(KeeperRelicKey)
 	Sleep, % Tm(KeeperStepDelay)
+	KbOpenCol := -1
+	PixelGetColor, KbOpenCol, %KbEx%, %KbEy%, RGB
+	if (ErrorLevel)
+		KbOpenCol := -1
 
 	KbI := 0
 	while (KbI < KbWant and MacroRunning)
@@ -2742,7 +2747,10 @@ else
 KeeperBail:
 gosub, KeeperClearDialog
 tooltip, Action: Close Inventory, %TooltipX%, %Tooltip8%, 8
-KbGuard := 0
+KbClosed := false
+if (KbOpenCol >= 0 and KbSpot("enchant", KbFx, KbFy))
+	KbClosed := KbFastClose(KbFx, KbFy, KbOpenCol)
+KbGuard := KbClosed ? 4 : 0
 while (KbGuard < 4)
 	{
 	KbGuard++
@@ -2752,7 +2760,7 @@ while (KbGuard < 4)
 	if (KbGone("enchant", TA("kbclose", 1200)))
 		break
 	}
-if (!KbGone("enchant", 150))
+if (!KbClosed and !KbGone("enchant", 150))
 	KbLastResult .= " (inventory still open)"
 
 tooltip, Action: Select Rod, %TooltipX%, %Tooltip8%, 8
@@ -11797,6 +11805,38 @@ KbFind(kind, ByRef fx, ByRef fy, want := "") {
 		i++
 		}
 	return false
+}
+
+KbFastClose(x, y, col) {
+	global KeeperInvKey
+	if (!KbPixNear(x, y, col))
+		return false
+	SetKeyDelay, 25, 40
+	Send, %KeeperInvKey%
+	SetKeyDelay, -1, -1
+	t0 := A_TickCount
+	gone := 0
+	while (A_TickCount - t0 < 1200)
+		{
+		if (!KbPixNear(x, y, col))
+			{
+			gone++
+			if (gone >= 2)
+				return true
+			}
+		else
+			gone := 0
+		Sleep, 10
+		}
+	return false
+}
+
+KbPixNear(x, y, col) {
+	PixelGetColor, c, %x%, %y%, RGB
+	if (ErrorLevel)
+		return false
+	d := Abs(((c >> 16) & 0xFF) - ((col >> 16) & 0xFF)) + Abs(((c >> 8) & 0xFF) - ((col >> 8) & 0xFF)) + Abs((c & 0xFF) - (col & 0xFF))
+	return (d <= 40)
 }
 
 KbWaitFor(kind, ByRef fx, ByRef fy, ms) {
