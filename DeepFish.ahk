@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 8
+DFModBuild := 9
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -146,6 +146,8 @@ ProfileFields.Push( ["Rods","TryhardBarColors","","str"]
 				  , ["Rods","SwSignsFirst","false","bool"]
 				  , ["Rods","SwRetryFails","false","bool"]
 				  , ["Rods","SwMaxSigns","false","bool"]
+				  , ["Rods","SwPassive","false","bool"]
+				  , ["Rods","SwPassiveMs","500","num"]
 				  , ["Rods","SwGuessOn","false","bool"]
 				  , ["Rods","SwGuessPts","","str"]
 				  , ["Rods","SwGuessLit","-1","num"]
@@ -1121,6 +1123,9 @@ if (AutoBlurCamera == true)
 if (!MacroRunning)
 	goto Idle
 
+if (SwPassive and SpecialRod = "Stellarwave Melody")
+	goto SwPassiveWatch
+
 if (!CamModeOn and RodSlotKey != "" and !RodEquippedOnce)
 	ForceReEquip := true
 
@@ -1177,6 +1182,32 @@ else
 goto NavigationShakeMode
 
 ;====================================================================================================;
+
+SwPassiveWatch:
+send {lbutton up}
+send {rbutton up}
+tooltip, Current Task: Passive - watching for the Stellarwave minigame, %TooltipX%, %Tooltip7%, 7
+tooltip, , , , 8
+tooltip, , , , 10
+Loop
+	{
+	if (!MacroRunning)
+		goto Idle
+	if (!SwPassive or SpecialRod != "Stellarwave Melody")
+		goto RestartMacro
+	gosub, CaptureFishBar
+	if (BarPresent())
+		{
+		tooltip, , , , 7
+		MgInPlay := false
+		SwFightReset()
+		goto BarMinigame
+		}
+	SwPassWait := SwPassiveMs
+	if SwPassWait is not number
+		SwPassWait := 500
+	Sleep, % (SwPassWait < 10) ? 10 : Round(SwPassWait)
+	}
 
 NavigationShakeFailsafe:
 NavigationFailsafeCount++
@@ -2751,11 +2782,12 @@ else
 	KbLastResult := "recharged " . KbRecharged . " of " . KbWant
 
 KeeperBail:
-gosub, KeeperClearDialog
 tooltip, Action: Close Inventory, %TooltipX%, %Tooltip8%, 8
 KbClosed := false
 if (KbOpenCol >= 0 and KbSpot("enchant", KbFx, KbFy))
 	KbClosed := KbFastClose(KbFx, KbFy, KbOpenCol)
+if (!KbClosed)
+	gosub, KeeperClearDialog
 KbGuard := KbClosed ? 4 : 0
 while (KbGuard < 4)
 	{
@@ -2770,8 +2802,13 @@ if (!KbClosed and !KbGone("enchant", 150))
 	KbLastResult .= " (inventory still open)"
 
 tooltip, Action: Select Rod, %TooltipX%, %Tooltip8%, 8
-Sleep, % Tm(TA("kbselect", 120))
-ForceReEquip := true
+if (RodSlotKey != "")
+	{
+	send {%RodSlotKey%}
+	Sleep, % Tm(TA("kbselect", 120))
+	}
+else
+	ForceReEquip := true
 MouseMove, KbSaveX, KbSaveY
 tooltip, , , , 8
 KbStatus := (KbRecharged > 0) ? "done" : "failed"
@@ -6672,10 +6709,10 @@ AdvRegistry() {
 	r.Push(["Keeperbound recharge", "L", "kbselect", 120, "ms|Pause before re-selecting the rod"])
 	r.Push(["Keeperbound recharge", "L", "kbpoll", 40, "ms|Button search: check every"])
 	r.Push(["Keeperbound recharge", "L", "kbgonepoll", 35, "ms|Close check: check every"])
-	r.Push(["Keeperbound recharge", "L", "kbkey", 70, "ms|Pause after a key press"])
-	r.Push(["Keeperbound recharge", "L", "kbtap1", 80, "ms|Button click: hover before clicking"])
-	r.Push(["Keeperbound recharge", "L", "kbtap2", 40, "ms|Button click: click hold"])
-	r.Push(["Keeperbound recharge", "L", "kbtap3", 60, "ms|Button click: pause after clicking"])
+	r.Push(["Keeperbound recharge", "L", "kbkey", 20, "ms|Pause after a key press"])
+	r.Push(["Keeperbound recharge", "L", "kbtap1", 50, "ms|Button click: hover before clicking"])
+	r.Push(["Keeperbound recharge", "L", "kbtap2", 35, "ms|Button click: click hold"])
+	r.Push(["Keeperbound recharge", "L", "kbtap3", 30, "ms|Button click: pause after clicking"])
 	r.Push(["Aquarium", "V", "AquariumOpenDelay", 0, "ms|Open delay"])
 	r.Push(["Aquarium", "V", "AquariumStepDelay", 0, "ms|Step delay"])
 	r.Push(["Aquarium", "L", "aqfocusto", 3, "s|Wait for Roblox to come to the front (max)"])
@@ -11864,7 +11901,7 @@ KbKey(k) {
 	SetKeyDelay, 25, 40
 	Send, %k%
 	SetKeyDelay, -1, -1
-	Sleep, % Tm(TA("kbkey", 70))
+	Sleep, % Tm(TA("kbkey", 20))
 	return true
 }
 
@@ -11949,11 +11986,11 @@ KbRodOn() {
 
 KbTap(x, y) {
 	MouseMove, %x%, %y%
-	Sleep, % Tm(TA("kbtap1", 80))
+	Sleep, % Tm(TA("kbtap1", 50))
 	Click, Down
-	Sleep, % Tm(TA("kbtap2", 40))
+	Sleep, % Tm(TA("kbtap2", 35))
 	Click, Up
-	Sleep, % Tm(TA("kbtap3", 60))
+	Sleep, % Tm(TA("kbtap3", 30))
 	return
 }
 
@@ -11968,11 +12005,11 @@ KbTapSaved(x, y) {
 	KbSy := NumGet(KbSpt, 4, "Int")
 	CoordMode, Mouse, Screen
 	MouseMove, %KbSx%, %KbSy%
-	Sleep, % Tm(TA("kbtap1", 80))
+	Sleep, % Tm(TA("kbtap1", 50))
 	Click, Down
-	Sleep, % Tm(TA("kbtap2", 40))
+	Sleep, % Tm(TA("kbtap2", 35))
 	Click, Up
-	Sleep, % Tm(TA("kbtap3", 60))
+	Sleep, % Tm(TA("kbtap3", 30))
 	CoordMode, Mouse, Client
 	return
 }
@@ -22081,7 +22118,7 @@ MgAdd("halicol", hQ)
 IconTips[hQ] := "ON - the bar goes for the exclamation mark`nwhen it appears (the harpoon minigame).`n`nOFF - the bar stays on the fish line the whole`ntime and ignores the exclamation mark."
 
 ; ------------------------------------------------------------------- Stellarwave Melody
-MgBlockOpen("stellar", 204, 180)
+MgBlockOpen("stellar", 204, 232)
 Y := 219
 SwChk := SwClickSigns ? "Checked" : ""
 Gui, Add, CheckBox, x%CX% y%Y% w300 h20 c%ColorText% vSwClickSigns %SwChk% gSwClickChanged HwndhC, Click the signs
@@ -22142,6 +22179,29 @@ Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
 Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
 MgAdd("stellar", hQ)
 IconTips[hQ] := "ON - pushes sign detection and clicking to the`nlimit: the stars are trusted almost the moment`nthey change, the start of the signs is locked in`nsooner, and each click is held and hovered for`nabout half as long. Turns on Instant sign clicks.`n`nExtreme: star changes are read every frame and`ntrusted instantly, every sign already showing is`nclicked in ONE burst without waiting for each star,`nclicks are 10ms hover / 20ms hold, and failed`nclicks are spotted and retried twice as fast.`n`nThe fastest setting, but the most likely to misread`na star or have a click not register. Pair it with`nRetry failed clicks."
+Y += RH
+SwPasChk := SwPassive ? "Checked" : ""
+Gui, Add, CheckBox, x%CX% y%Y% w300 h20 c%ColorText% vSwPassive %SwPasChk% gSwPassiveChanged HwndhC, Passive mode
+MgAdd("stellar", hC)
+SpecialBrushes[hC] := {brush: hBrushCard, text: ColorYellowBGR}
+Gui, Font, s9 Bold c%ColorAccent%, Segoe UI
+Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
+Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
+MgAdd("stellar", hQ)
+IconTips[hQ] := "ON - the macro does NOT cast or shake. After you`npress Start it just watches your screen and plays`nthe Stellarwave minigame whenever it shows up,`nthen goes back to watching. You cast yourself.`n`nOFF - normal: the macro casts and shakes too."
+Y += RH
+Gui, Font, s9 Norm c%ColorText%, Segoe UI
+Gui, Add, Text, x%CX% y%Y% w220 h20 +0x200 HwndhC, Passive scan every (ms)
+MgAdd("stellar", hC)
+SpecialBrushes[hC] := {brush: hBrushCard, text: ColorYellowBGR}
+Gui, Add, Edit, x%IX% y%Y% w80 h20 vSwPassiveMs gSwPassiveChanged HwndhC +Number, %SwPassiveMs%
+MgAdd("stellar", hC)
+ThemedCtrls.Push(hC)
+Gui, Font, s9 Bold c%ColorAccent%, Segoe UI
+Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
+Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
+MgAdd("stellar", hQ)
+IconTips[hQ] := "How often passive mode looks for the minigame.`nLower = it starts playing sooner, but uses a bit`nmore CPU. 500 is a good default."
 
 ; ------------------------------------------------------------------- Requiem reel limits
 MgBlockOpen("reel", 204, 70)
@@ -25304,6 +25364,16 @@ SwRetryFailsChanged:
 GuiControlGet, SwRetryV, 1:, SwRetryFails
 if (!ErrorLevel)
 	SwRetryFails := SwRetryV ? true : false
+gosub, QueueAutoSave
+return
+
+SwPassiveChanged:
+GuiControlGet, SwPasV, 1:, SwPassive
+if (!ErrorLevel)
+	SwPassive := SwPasV ? true : false
+GuiControlGet, SwPasMsV, 1:, SwPassiveMs
+if (!ErrorLevel and SwPasMsV != "")
+	SwPassiveMs := SwPasMsV + 0
 gosub, QueueAutoSave
 return
 
