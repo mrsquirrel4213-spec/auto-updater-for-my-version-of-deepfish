@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 9
+DFModBuild := 10
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -1189,6 +1189,9 @@ send {rbutton up}
 tooltip, Current Task: Passive - watching for the Stellarwave minigame, %TooltipX%, %Tooltip7%, 7
 tooltip, , , , 8
 tooltip, , , , 10
+MgInPlay := false
+SwFightReset()
+SwPassSeen := 0
 Loop
 	{
 	if (!MacroRunning)
@@ -1196,11 +1199,9 @@ Loop
 	if (!SwPassive or SpecialRod != "Stellarwave Melody")
 		goto RestartMacro
 	gosub, CaptureFishBar
-	if (BarPresent())
+	if (FishLineVisible() or BarPresent())
 		{
 		tooltip, , , , 7
-		MgInPlay := false
-		SwFightReset()
 		goto BarMinigame
 		}
 	SwPassWait := SwPassiveMs
