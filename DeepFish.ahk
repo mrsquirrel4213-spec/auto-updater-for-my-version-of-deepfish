@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 12
+DFModBuild := 13
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -1205,6 +1205,20 @@ Loop
 		{
 		tooltip, , , , 7
 		goto BarMinigame
+		}
+	if (SwFrameTop() >= 0)
+		{
+		SwBurstT0 := A_TickCount
+		while (MacroRunning and A_TickCount - SwBurstT0 < 1500)
+			{
+			gosub, CaptureFishBar
+			if (FishLineVisible() or BarPresent())
+				{
+				tooltip, , , , 7
+				goto BarMinigame
+				}
+			Sleep, 5
+			}
 		}
 	SwPassWait := SwPassiveMs
 	if SwPassWait is not number
@@ -3353,7 +3367,7 @@ OverlaySetHidden(hide) {
 		{
 		if (!cb)
 			cb := RegisterCallback("OverlayWinEvent")
-		hook := DllCall("SetWinEventHook", "UInt", 0x8000, "UInt", 0x8002, "Ptr", 0, "Ptr", cb, "UInt", pid, "UInt", 0, "UInt", 0, "Ptr")
+		hook := DllCall("SetWinEventHook", "UInt", 0x8000, "UInt", 0x800E, "Ptr", 0, "Ptr", cb, "UInt", pid, "UInt", 0, "UInt", 0, "Ptr")
 		}
 	else if (!hide and hook)
 		{
