@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 11
+DFModBuild := 12
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -75,6 +75,7 @@ ProfileFields.Push( ["General","AutoLowerGraphics","true","bool"]
                   , ["General","AutoBlurDelay","50","num"]
                   , ["General","RestartDelay","1000","num"]
                   , ["General","TimeOffset","0","num"]
+                  , ["General","HideOverlay","false","bool"]
                   , ["Update","AutoUpdate","false","bool"]
                   , ["Advanced","AdvancedOn","false","bool"]
                   , ["General","HoldRodCastDuration","1000","num"]
@@ -148,6 +149,7 @@ ProfileFields.Push( ["Rods","TryhardBarColors","","str"]
 				  , ["Rods","SwMaxSigns","false","bool"]
 				  , ["Rods","SwPassive","false","bool"]
 				  , ["Rods","SwPassiveMs","500","num"]
+				  , ["Rods","SwPassiveHide","false","bool"]
 				  , ["Rods","SwGuessOn","false","bool"]
 				  , ["Rods","SwGuessPts","","str"]
 				  , ["Rods","SwGuessLit","-1","num"]
@@ -3334,6 +3336,54 @@ CryptHashHex(pData, nData) {
 	return hex
 }
 
+OverlayHideTick:
+OvWant := MacroRunning and (HideOverlay or (SwPassiveHide and SwPassive and SpecialRod = "Stellarwave Melody"))
+if (OvWant = OverlayHidden)
+	return
+OverlayHidden := OvWant ? true : false
+OverlaySetHidden(OverlayHidden)
+if (OverlayHidden)
+	gosub, HideHud
+return
+
+OverlaySetHidden(hide) {
+	static hook := 0, cb := 0
+	pid := DllCall("GetCurrentProcessId")
+	if (hide and !hook)
+		{
+		if (!cb)
+			cb := RegisterCallback("OverlayWinEvent")
+		hook := DllCall("SetWinEventHook", "UInt", 0x8000, "UInt", 0x8002, "Ptr", 0, "Ptr", cb, "UInt", pid, "UInt", 0, "UInt", 0, "Ptr")
+		}
+	else if (!hide and hook)
+		{
+		DllCall("UnhookWinEvent", "Ptr", hook)
+		hook := 0
+		}
+	dhw := A_DetectHiddenWindows
+	DetectHiddenWindows, On
+	WinGet, ids, List, ahk_class tooltips_class32 ahk_pid %pid%
+	Loop, %ids%
+		{
+		h := ids%A_Index%
+		if (hide)
+			WinSet, Transparent, 0, ahk_id %h%
+		else
+			WinSet, Transparent, Off, ahk_id %h%
+		}
+	DetectHiddenWindows, %dhw%
+}
+
+OverlayWinEvent(hHook, event, hwnd, idObject, idChild, thread, time) {
+	global OverlayHidden
+	if (!OverlayHidden or idObject != 0 or !hwnd)
+		return
+	DetectHiddenWindows, On
+	WinGetClass, c, ahk_id %hwnd%
+	if (c = "tooltips_class32")
+		WinSet, Transparent, 0, ahk_id %hwnd%
+}
+
 DFCheckForUpdate:
 SetTimer, DFCheckForUpdate, 600000
 if (!AutoUpdate or DFUpdateRepo = "" or DFUpdBusy or MacroRunning)
@@ -5334,6 +5384,11 @@ return
 ;====================================================================================================;
 
 ShowHud:
+if (OverlayHidden)
+	{
+	gosub, HideHud
+	return
+	}
 if (!HudBuilt)
 	gosub, BuildHud
 HudNeedW := Round(TrackRight - TrackLeft)
@@ -21287,6 +21342,7 @@ GuiControl, 1:Hide, %SbThumb%
 
 Gui, Show, w%WINW% h%WINH%, DeepFish BETA
 SetTimer, DFCheckForUpdate, -1200
+SetTimer, OverlayHideTick, 250
 gosub, RepaintGui
 
 return
@@ -21429,7 +21485,7 @@ hC := AddPanel(CARDX, 120, CARDW, 152)
 GeneralCtrls.Push(hC)
 hC := AddPanel(CARDX, 282, CARDW, 168)
 GeneralCtrls.Push(hC)
-hC := AddPanel(CARDX, 460, CARDW, 230)
+hC := AddPanel(CARDX, 460, CARDW, 256)
 GeneralCtrls.Push(hC)
 
 Gui, Font, s8 Bold c%ColorMuted%, Segoe UI
@@ -21577,6 +21633,16 @@ Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
 Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
 GeneralCtrls.Push(hQ)
 IconTips[hQ] := "ON - every timer in the macro can be tuned on the`nAdvanced page (Open): failsafes, every pause in`ncasting, the minigame, Stellarwave, Keeperbound,`nAquarium and Totem.`n`nOFF - the built-in defaults are used. Your custom`nvalues are kept for when you turn it back on."
+Y += RH
+Gui, Font, s9 c%ColorText%, Segoe UI
+HoChk := HideOverlay ? "Checked" : ""
+Gui, Add, CheckBox, x%CX% y%Y% w300 h20 c%ColorText% vHideOverlay %HoChk% gOverlayOptChanged HwndhC, Hide overlay while running
+GeneralCtrls.Push(hC)
+Gui, Font, s9 Bold c%ColorAccent%, Segoe UI
+Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
+Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
+GeneralCtrls.Push(hQ)
+IconTips[hQ] := "ON - while the macro runs (any rod, any mode), the`ninfo text and the bar overlay are invisible. The`nmacro still works exactly the same.`n`nStop the macro to see them again."
 Y += RH
 
 return
@@ -22119,7 +22185,7 @@ MgAdd("halicol", hQ)
 IconTips[hQ] := "ON - the bar goes for the exclamation mark`nwhen it appears (the harpoon minigame).`n`nOFF - the bar stays on the fish line the whole`ntime and ignores the exclamation mark."
 
 ; ------------------------------------------------------------------- Stellarwave Melody
-MgBlockOpen("stellar", 204, 232)
+MgBlockOpen("stellar", 204, 258)
 Y := 219
 SwChk := SwClickSigns ? "Checked" : ""
 Gui, Add, CheckBox, x%CX% y%Y% w300 h20 c%ColorText% vSwClickSigns %SwChk% gSwClickChanged HwndhC, Click the signs
@@ -22203,6 +22269,17 @@ Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
 Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
 MgAdd("stellar", hQ)
 IconTips[hQ] := "How often passive mode looks for the minigame.`nLower = it starts playing sooner, but uses a bit`nmore CPU. 500 is a good default."
+Y += RH
+SwPhChk := SwPassiveHide ? "Checked" : ""
+Gui, Font, s9 Norm c%ColorText%, Segoe UI
+Gui, Add, CheckBox, x%CX% y%Y% w300 h20 c%ColorText% vSwPassiveHide %SwPhChk% gOverlayOptChanged HwndhC, Hide overlay in passive mode
+MgAdd("stellar", hC)
+SpecialBrushes[hC] := {brush: hBrushCard, text: ColorYellowBGR}
+Gui, Font, s9 Bold c%ColorAccent%, Segoe UI
+Gui, Add, Text, x%QX% y%Y% w16 h20 Center +0x100 +0x200 HwndhQ, ?
+Gui, Font, s9 Norm c%ColorMuted%, Segoe UI
+MgAdd("stellar", hQ)
+IconTips[hQ] := "ON - while passive mode is running, the info text`nand the bar overlay are invisible. The macro still`nworks exactly the same.`n`nStop the macro to see them again."
 
 ; ------------------------------------------------------------------- Requiem reel limits
 MgBlockOpen("reel", 204, 70)
@@ -25365,6 +25442,13 @@ SwRetryFailsChanged:
 GuiControlGet, SwRetryV, 1:, SwRetryFails
 if (!ErrorLevel)
 	SwRetryFails := SwRetryV ? true : false
+gosub, QueueAutoSave
+return
+
+OverlayOptChanged:
+GuiControlGet, OvV, 1:, %A_GuiControl%
+if (!ErrorLevel)
+	%A_GuiControl% := OvV ? true : false
 gosub, QueueAutoSave
 return
 
