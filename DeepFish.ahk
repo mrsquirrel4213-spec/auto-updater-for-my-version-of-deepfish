@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 7
+DFModBuild := 8
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -1688,6 +1688,12 @@ if (SpecialRod != "Tranquility" and SpecialRod != "Lullaby" and SpecialRod != "S
 	}
 if (UiHandsOff(false))
 	{
+	DllCall("QueryPerformanceCounter", "Int64*", UiFastNow)
+	if (UiGoneT and ((UiFastNow - UiGoneT) * 1000.0 / QpcFreq) >= TA("uigonefast", 200) and !BarPresent() and !FishLineVisible())
+		{
+		MgOverWhy := "uigone"
+		goto BarMinigameOver
+		}
 	Sleep, % Tm(TA("handsoff", 10))
 	goto BarMinigame2
 	}
@@ -1811,7 +1817,7 @@ if (!FoundBar and !LineSeen)
 		gosub, HideHud
 		HudLossHidden := true
 		}
-	if (BarLostAt and ((BarLostNow - BarLostAt) * 1000.0 / QpcFreq) > TA("barlost", 750))
+	if (BarLostAt and ((BarLostNow - BarLostAt) * 1000.0 / QpcFreq) > TA("barlost", 450))
 		{
 		MgOverWhy := "barlost"
 		goto BarMinigameOver
@@ -6623,7 +6629,8 @@ AdvRegistry() {
 	r.Push(["Shake and failsafes", "V", "BarCalculationFailsafe", 0, "s|Bar failsafe - recast if the bar never shows after"])
 	r.Push(["Minigame", "L", "barsamp", 12, "ms|Bar size: pause between samples"])
 	r.Push(["Minigame", "L", "barhide", 150, "ms|Hide the overlay once the bar is gone for"])
-	r.Push(["Minigame", "L", "barlost", 750, "ms|End the minigame once the bar is gone for"])
+	r.Push(["Minigame", "L", "barlost", 450, "ms|End the minigame once the bar is gone for"])
+	r.Push(["Minigame", "L", "uigonefast", 200, "ms|End early once the UI and bar are both gone for"])
 	r.Push(["Minigame", "L", "nofish", 8000, "ms|End the minigame if no fish line for"])
 	r.Push(["Minigame", "L", "handsoff", 10, "ms|Pause while the bar UI is hidden"])
 	r.Push(["Minigame", "L", "lullhold", 20, "ms|Lullaby: click hold"])
