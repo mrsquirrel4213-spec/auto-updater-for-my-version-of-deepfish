@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 13
+DFModBuild := 14
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -189,6 +189,7 @@ ProfileFields.Push( ["Keeper","KeeperAuto","false","bool"]
                   , ["Keeper","KeeperBetweenDelay","2000","num"]
                   , ["Keeper","KeeperStepDelay","100","num"]
                   , ["Keeper","KeeperOpenDelay","100","num"]
+                  , ["Keeper","KeeperPreDelay","0","num"]
                   , ["Keeper","KeeperOcrOn","false","bool"]
                   , ["Keeper","KeeperOcrEvery","1","num"]
                   , ["Keeper","KeeperLineX","0","num"]
@@ -1481,6 +1482,7 @@ goto BarMinigameRedo
 
 BarMinigameSingle:
 
+UiHoShown := false
 MgFightMode := true
 BarCalcFailsafeCounter := 0
 MgCastCharged := false
@@ -1729,13 +1731,30 @@ gosub, CaptureFishBar
 DllCall("QueryPerformanceCounter", "Int64*", PfC)
 PfSleep := Round((PfB - PfA) * 1000.0 / QpcFreq, 1)
 PfCap := Round((PfC - PfB) * 1000.0 / QpcFreq, 1)
-if (SpecialRod != "Tranquility" and SpecialRod != "Lullaby" and SpecialRod != "Stellarwave Melody" and UiEdgeTick() = "gone")
+UiGoneNow := (SpecialRod != "Tranquility" and SpecialRod != "Lullaby" and SpecialRod != "Stellarwave Melody" and UiEdgeTick() = "gone")
+if ((UiGoneNow or UiGoneT) and BarPresent())
+	{
+	UiGoneT := 0
+	UiEdgeLatch := false
+	UiGoneNow := false
+	if (UiHoShown)
+		{
+		tooltip, Current Task: Playing Bar Minigame, %TooltipX%, %Tooltip7%, 7
+		UiHoShown := false
+		}
+	}
+if (UiGoneNow)
 	{
 	MgOverWhy := "uigone"
 	goto BarMinigameOver
 	}
 if (UiHandsOff(false))
 	{
+	if (!UiHoShown)
+		{
+		tooltip, Current Task: Waiting - fishing UI not visible, %TooltipX%, %Tooltip7%, 7
+		UiHoShown := true
+		}
 	DllCall("QueryPerformanceCounter", "Int64*", UiFastNow)
 	if (UiGoneT and ((UiFastNow - UiGoneT) * 1000.0 / QpcFreq) >= TA("uigonefast", 200) and !BarPresent() and !FishLineVisible())
 		{
@@ -1744,6 +1763,11 @@ if (UiHandsOff(false))
 		}
 	Sleep, % Tm(TA("handsoff", 10))
 	goto BarMinigame2
+	}
+if (UiHoShown)
+	{
+	tooltip, Current Task: Playing Bar Minigame, %TooltipX%, %Tooltip7%, 7
+	UiHoShown := false
 	}
 if (SpecialRod = "Lullaby")
 	{
@@ -2693,6 +2717,15 @@ MouseGetPos, KbSaveX, KbSaveY
 send {lbutton up}
 send {rbutton up}
 tooltip, Current Task: Keeperbound Recharge, %TooltipX%, %Tooltip7%, 7
+KbPreV := KeeperPreDelay
+if KbPreV is number
+	{
+	if (KbPreV > 0)
+		{
+		tooltip, Action: Waiting %KbPreV% ms before recharging, %TooltipX%, %Tooltip8%, 8
+		Sleep, % Tm(KbPreV)
+		}
+	}
 
 if (KeeperRelicKey = "")
 	{
@@ -23208,11 +23241,13 @@ KeeperCtrls.Push(hC)
 SpecialBrushes[hC] := {brush: hBrushCard, text: 0x4BC2FF}
 Gui, Font, s9 Norm c%ColorText%, Segoe UI
 
-hC := AddPanel(CARDX, 260, CARDW, 412)
+hC := AddPanel(CARDX, 260, CARDW, 434)
 KeeperCtrls.Push(hC)
 KeeperBodyCtrls.Push(hC)
 
-KbFieldDefs := [ ["Every (catches)","KeeperEveryCatches","num"
+KbFieldDefs := [ ["Wait before recharge (ms)","KeeperPreDelay","num"
+	, "How long to wait after a catch before the`nrecharge starts. 0 = start right away.`n`nRaise it if the catch popup or the game is still`nbusy when the recharge begins."]
+	, ["Every (catches)","KeeperEveryCatches","num"
 	, "How many catches between recharges.`n`nA Keeperbound rod loses about 0.2% power per`ncatch, so 50 catches is roughly 10% lost."]
 	, ["Recharges per trip","KeeperRecharges","num"
 	, "How many times to enchant in one visit.`n`nEach one refills about 5% power, so two`nrecharges covers the drain from 50 catches."]
