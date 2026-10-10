@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 15
+DFModBuild := 16
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -1483,6 +1483,7 @@ goto BarMinigameRedo
 BarMinigameSingle:
 
 UiHoShown := false
+UiNoBarN := 0
 MgFightMode := true
 BarCalcFailsafeCounter := 0
 MgCastCharged := false
@@ -1732,12 +1733,6 @@ DllCall("QueryPerformanceCounter", "Int64*", PfC)
 PfSleep := Round((PfB - PfA) * 1000.0 / QpcFreq, 1)
 PfCap := Round((PfC - PfB) * 1000.0 / QpcFreq, 1)
 UiGoneNow := (SpecialRod != "Tranquility" and SpecialRod != "Lullaby" and SpecialRod != "Stellarwave Melody" and UiEdgeTick() = "gone")
-if ((UiGoneNow or UiGoneT) and BarPresent())
-	{
-	UiGoneT := 0
-	UiEdgeLatch := false
-	UiGoneNow := false
-	}
 if (UiGoneNow)
 	{
 	MgOverWhy := "uigone"
@@ -1746,12 +1741,19 @@ if (UiGoneNow)
 if (UiGoneT and SpecialRod != "Tranquility" and SpecialRod != "Lullaby" and SpecialRod != "Stellarwave Melody")
 	{
 	DllCall("QueryPerformanceCounter", "Int64*", UiFastNow)
-	if (((UiFastNow - UiGoneT) * 1000.0 / QpcFreq) >= TA("uigonefast", 200) and !BarPresent() and !FishLineVisible())
+	if (!BarPresent() and !FishLineVisible())
+		UiNoBarN := UiNoBarN + 1
+	else
+		UiNoBarN := 0
+	if (UiNoBarN >= 2 and ((UiFastNow - UiGoneT) * 1000.0 / QpcFreq) >= TA("uigonefast", 0))
 		{
+		UiNoBarN := 0
 		MgOverWhy := "uigone"
 		goto BarMinigameOver
 		}
 	}
+else
+	UiNoBarN := 0
 if (SpecialRod = "Lullaby")
 	{
 	if (LullScan())
@@ -6594,11 +6596,7 @@ UiHandsOff(uhTick) {
 	if (SpecialRod = "Darkheart" and (DarkFlashing or FrameIsDark()))
 		return false
 	if (BarPresent() or FishLineVisible())
-		{
-		UiGoneT := 0
-		UiEdgeLatch := false
 		return false
-		}
 	MaxLeftToggle := false
 	MaxRightToggle := false
 	if (PrecisionDown or GetKeyState("LButton"))
@@ -6760,7 +6758,7 @@ AdvRegistry() {
 	r.Push(["Minigame", "L", "barsamp", 12, "ms|Bar size: pause between samples"])
 	r.Push(["Minigame", "L", "barhide", 150, "ms|Hide the overlay once the bar is gone for"])
 	r.Push(["Minigame", "L", "barlost", 450, "ms|End the minigame once the bar is gone for"])
-	r.Push(["Minigame", "L", "uigonefast", 200, "ms|End early once the UI and bar are both gone for"])
+	r.Push(["Minigame", "L", "uigonefast", 0, "ms|End early once the UI and bar are both gone for"])
 	r.Push(["Minigame", "L", "nofish", 8000, "ms|End the minigame if no fish line for"])
 	r.Push(["Minigame", "L", "handsoff", 10, "ms|Pause while the bar UI is hidden"])
 	r.Push(["Minigame", "L", "lullhold", 20, "ms|Lullaby: click hold"])
