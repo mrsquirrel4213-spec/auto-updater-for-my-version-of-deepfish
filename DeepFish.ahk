@@ -37,7 +37,7 @@
 #MaxThreadsPerHotkey 2
 
 DFBetaVersion := "1.1.6"
-DFModBuild := 14
+DFModBuild := 15
 DFUpdateRepo := "mrsquirrel4213-spec/auto-updater-for-my-version-of-deepfish"
 DFKeySalt := "89a8ae69945953e706be487f26863e94"
 
@@ -1737,37 +1737,20 @@ if ((UiGoneNow or UiGoneT) and BarPresent())
 	UiGoneT := 0
 	UiEdgeLatch := false
 	UiGoneNow := false
-	if (UiHoShown)
-		{
-		tooltip, Current Task: Playing Bar Minigame, %TooltipX%, %Tooltip7%, 7
-		UiHoShown := false
-		}
 	}
 if (UiGoneNow)
 	{
 	MgOverWhy := "uigone"
 	goto BarMinigameOver
 	}
-if (UiHandsOff(false))
+if (UiGoneT and SpecialRod != "Tranquility" and SpecialRod != "Lullaby" and SpecialRod != "Stellarwave Melody")
 	{
-	if (!UiHoShown)
-		{
-		tooltip, Current Task: Waiting - fishing UI not visible, %TooltipX%, %Tooltip7%, 7
-		UiHoShown := true
-		}
 	DllCall("QueryPerformanceCounter", "Int64*", UiFastNow)
-	if (UiGoneT and ((UiFastNow - UiGoneT) * 1000.0 / QpcFreq) >= TA("uigonefast", 200) and !BarPresent() and !FishLineVisible())
+	if (((UiFastNow - UiGoneT) * 1000.0 / QpcFreq) >= TA("uigonefast", 200) and !BarPresent() and !FishLineVisible())
 		{
 		MgOverWhy := "uigone"
 		goto BarMinigameOver
 		}
-	Sleep, % Tm(TA("handsoff", 10))
-	goto BarMinigame2
-	}
-if (UiHoShown)
-	{
-	tooltip, Current Task: Playing Bar Minigame, %TooltipX%, %Tooltip7%, 7
-	UiHoShown := false
 	}
 if (SpecialRod = "Lullaby")
 	{
@@ -6596,6 +6579,7 @@ UiEdgeTick() {
 }
 
 UiHandsOff(uhTick) {
+	global UiEdgeLatch
 	global UiGoneT, UiState, SpecialRod, PrecisionDown, PrecisionUpAt, MaxLeftToggle, MaxRightToggle, BelDown, UiCallN, DarkFlashing
 	if (SpecialRod = "Tranquility" or SpecialRod = "Lullaby" or SpecialRod = "Stellarwave Melody")
 		return false
@@ -6609,6 +6593,12 @@ UiHandsOff(uhTick) {
 		return false
 	if (SpecialRod = "Darkheart" and (DarkFlashing or FrameIsDark()))
 		return false
+	if (BarPresent() or FishLineVisible())
+		{
+		UiGoneT := 0
+		UiEdgeLatch := false
+		return false
+		}
 	MaxLeftToggle := false
 	MaxRightToggle := false
 	if (PrecisionDown or GetKeyState("LButton"))
